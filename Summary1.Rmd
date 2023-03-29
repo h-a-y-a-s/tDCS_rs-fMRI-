@@ -1,0 +1,282 @@
+---
+title: "Summary of Statistical Analysis"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+#### \*\* This notebook only covers analysis of models that include all networks. \*\*
+
+#### Prepare environment
+
+```{r, results='hide', message=FALSE}
+#Hidden output
+rm(list = ls()) #clear/ all
+library(ggplot2)
+library(palmerpenguins)
+library(dplyr)
+library(ggstatsplot)
+library(tidyr)
+library("ggpubr")
+library(rstatix)
+library(tidyverse)
+library(lme4)
+library(nlme)
+library(ggpubr)
+library(lmerTest)
+library(afex)
+library(wesanderson)
+library(emmeans)
+library(stringr)
+library(ggh4x)
+library(psycho)
+library(tidyverse)
+library(DT)
+```
+
+<br>
+
+#### Prepare data
+
+```{r}
+disp_data <- read.csv("new_delat_vals.csv")
+
+nets = c('VN', 'SMN', 'DAN', 'SN', 'LN', 'FPN', 'DMN')
+disp_data$Network <- factor(disp_data$Network ,levels=nets)
+
+#color map python
+color_map= c('#781286', '#4682B4','#00760E', '#BE3AFA', 
+                'palegreen' , '#E69422','#CD3E4E')
+```
+
+##### Take a look at the data frame
+
+```{r}
+
+head(disp_data, n=10)
+
+```
+
+<br>
+
+##### Order levels of the Network variable
+
+```{r}
+disp_data$Session<-as.factor(disp_data$Session)
+disp_data$Network<-as.factor(disp_data$Network)
+```
+
+<br>
+
+##### Remove additional index columns
+
+```{r}
+drop_cols = c("X")
+disp_data = disp_data[,!(names(disp_data) %in% drop_cols)]
+```
+
+<br>
+
+##### Take a look at the data frame
+
+```{r}
+head(disp_data, n=10)
+```
+
+<br>
+
+# Analysis of dispersion measures
+
+## The new proportional dispersion value
+
+The new dispersion value is calculated as follows:
+
+![](2023-02-16%2016_48_10-Abstract%20OHBM%202023%20for%20co-authors%20-%20Word.png){alt="Delta_Dispersion_New =" width="200" height="45"}
+
+### Plotting the proportional dispersion value
+
+```{r, fig.width = 15, fig.height = 7, dpi=400}
+max_disp = round(max(disp_data$Delta_Dispersion_New), digits=1) + 0.1
+min_disp = round(min(disp_data$Delta_Dispersion_New), digits=1) - 0.1
+sub_title_col = 'black'
+#Plot dd new val
+vp_dd<- ggplot(data=disp_data, aes(x=Network, y=Delta_Dispersion_New, fill=Network)) + 
+    geom_violin(position=position_dodge(), alpha=0.5, inherit.aes = TRUE)+
+    geom_dotplot(binaxis= "y",stackdir = "center",dotsize = 0.1,fill = 1,
+                 binwidth=0.02)+
+    stat_summary(fun = "mean",geom = "crossbar", width = 0.6, 
+                 colour = "black")+
+    geom_hline(yintercept = 0, lty  =2, colour="black")+
+    scale_fill_manual(values = color_map) +
+    guides(fill = "none")+
+    scale_x_discrete("Network")+
+    scale_y_continuous(name= "Dispersion On-Off/Dispersion On+Off",
+                       breaks = seq(min_disp, max_disp, 0.1))+
+    theme_light()+
+    ggtitle("Dispersion On-Off/Dispersion On+Off\n")+
+    theme(plot.title = element_text(hjust = 0.5, size=18, face="bold"),
+          legend.title = element_text(size=16),
+          legend.text = element_text(size=16),
+          axis.text=element_text(size=14),
+          axis.title=element_text(size=16,face="bold"),
+          strip.text = element_text(
+          size = 14, color =sub_title_col, face =  "bold"))+
+    facet_wrap("Session", labeller = as_labeller(c(
+      "1" = "Session 1 - Unilateral","2" = "Session 2 - Bilateral",
+      "3"= "Session 3 - Sham")))
+  #save dd
+  vp_dd
+```
+
+### Linear mixed model for the new proportional dispersion value
+
+```{r}
+Model<-lmer(Delta_Dispersion_New ~ Network*Session +(1|Subject),data = disp_data)
+summary(Model)
+anova(Model)
+```
+### Tukey contrasts of the new proportional dispersion value
+```{r}
+emmeans(Model,pairwise~Network)
+emmeans(Model,pairwise~Session)
+```
+
+
+#### -\> In the model "Delta_Dispersion_New \~ Network\*Session +(1\|Subject)" No Variable is significant
+
+
+#### -\> In the model "Delta_Dispersion_New \~ Network\*Session +(1\|Subject)" No pairwise **Network** contrast is significant
+
+#### -\> In the model "Delta_Dispersion_New \~ Network\*Session +(1\|Subject)" No pairwise **Session** contrast is significant
+
+<br>
+
+## The original dispersion difference value
+
+The new dispersion value is calculated as follows:
+
+![](2023-02-16%2017_00_11-Project%20Llama%20Overlay.png){width="200"}
+
+### Plotting the dispersion difference value
+
+```{r, fig.width = 15, fig.height = 7, dpi=400}
+#Plot dd old val
+max_disp = round(max(disp_data$Delta_Dispersion), digits=0) + 1
+min_disp = round(min(disp_data$Delta_Dispersion), digits=0) - 1
+  
+  vp_dd<- ggplot(data=disp_data, aes(x=Network, y=Delta_Dispersion, fill=Network)) + 
+    geom_violin(position=position_dodge(), alpha=0.5, inherit.aes = TRUE)+
+    geom_dotplot(binaxis= "y",stackdir = "center",dotsize = 0.2,fill = 1,
+                 binwidth=0.5)+
+    stat_summary(fun = "mean",geom = "crossbar", width = 0.6, 
+                 colour = "black")+
+    geom_hline(yintercept = 0, lty  =2, colour="black")+
+    scale_fill_manual(values = color_map) +
+    guides(fill = "none")+
+    scale_x_discrete("Network")+
+    scale_y_continuous(name= "Dispersion On-Off", breaks = seq(min_disp, max_disp, 1))+
+    theme_light()+
+    ggtitle("Dispersion On - Dispersion Off \n")+
+    theme(plot.title = element_text(hjust = 0.5, size=18, face="bold"),
+          legend.title = element_text(size=16),
+          legend.text = element_text(size=16),
+          axis.text=element_text(size=14),
+          axis.title=element_text(size=16,face="bold"),
+          strip.text = element_text(
+            size = 14, color =sub_title_col, face =  "bold"))+
+    facet_wrap("Session", labeller = as_labeller(c(
+      "1" = "Session 1 - Unilateral","2" = "Session 2 - Bilateral",
+      "3"= "Session 3 - Sham")))
+  vp_dd
+```
+
+### Linear mixed model for Delta_Dispersion
+
+```{r}
+Model<-lmer(Delta_Dispersion ~ Network*Session +(1|Subject),data = disp_data)
+summary(Model)
+anova(Model)
+
+```
+
+#### -\> In the model "Delta_Dispersion\~ Network\*Session +(1\|Subject)" No Variable is significant but the interaction is close
+
+### Tukey contrasts of Delta_Dispersion
+
+```{r}
+emmeans(Model,pairwise~Network)
+emmeans(Model,pairwise~Session)
+```
+
+#### -\> In the model "Delta_Dispersion\~ Network\*Session +(1\|Subject)" No pairwise **Network** contrast is significant
+
+#### -\> In the model "Delta_Dispersion \~ Network\*Session +(1\|Subject)" No pairwise **Session** contrast is significant
+
+<br>
+
+# Analysis of centroid shifts' measures
+
+### Plotting centroid shifts in all sessions
+
+```{r, fig.width = 15, fig.height = 7, dpi=400}
+max_shift = round(max(disp_data$Centroid_Shift), digits=1) + 0.01
+min_shift = round(min(disp_data$Centroid_Shift), digits=1) - 0.01
+vp_dc<- ggplot(data=disp_data, aes(x=Network, y=Centroid_Shift, fill=Network)) + 
+    geom_violin(position=position_dodge(), alpha=0.5, inherit.aes = TRUE)+
+    geom_dotplot(binaxis= "y",stackdir = "center",dotsize = 0.3,fill = 1,
+                 binwidth=0.0015, aes (fill = Network))+
+    stat_summary(fun = "mean",geom = "crossbar", 
+                 width = 0.6, colour = "black")+
+    scale_fill_manual(values = color_map) +
+    guides(fill = "none")+
+    scale_x_discrete("Network")+
+    scale_y_continuous(name= "Euclidean displacment", 
+                       breaks = seq(min_shift, max_shift, 0.005))+
+    ggtitle("Centroid Displacement \n")+
+    theme_bw()+
+    theme(plot.title = element_text(hjust = 0.5, size=18, face="bold"),
+          legend.title = element_text(size=16),
+          legend.text = element_text(size=16),
+          axis.text=element_text(size=14),
+          axis.title=element_text(size=16,face="bold"),
+          strip.text = element_text(
+            size = 14, color =sub_title_col, face =  "bold"))+
+    facet_wrap("Session", labeller = as_labeller(c(
+      "1" = "Session 1 - Unilateral","2" = "Session 2 - Bilateral",
+      "3"= "Session 3 - Sham")))
+  
+  #save dc
+  vp_dc
+```
+
+### Linear mixed model for centroid shifts
+
+```{r}
+Model<-lmer(Centroid_Shift ~ Network*Session +(1|Subject),data = disp_data)
+summary(Model)
+anova(Model)
+```
+
+#### -\> In the model "Centroid_Shift\~ Network\*Session +(1\|Subject)" **Network** is a significant var
+
+
+
+### Tukey contrasts of Delta_Dispersion
+
+```{r}
+emmeans(Model,pairwise~Network)
+emmeans(Model,pairwise~Session)
+```
+
+#### -\> In the model "Centroid_Shift \~ Network\*Session +(1\|Subject)" All CLs are positive -\> all centoirds are shifted and != zero
+
+#### the following pairwise **Network** contrast are significant
+
+```         
+DAN - DMN, DAN - FPN, DMN - SMN,  DMN - VN, FPN - VN, LN - VN, SN - VN 
+```
+#### -\> In the model "Delta_Dispersion \~ Network\*Session +(1\|Subject)" No pairwise **Session** contrast is significant.
